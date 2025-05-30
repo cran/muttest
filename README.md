@@ -1,0 +1,134 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# muttest <img src="man/figures/logo.png" align="right" alt="" width="120" />
+
+<!-- badges: start -->
+
+[![CRAN
+status](https://www.r-pkg.org/badges/version/muttest)](https://CRAN.R-project.org/package=muttest)
+[![R-CMD-check](https://github.com/jakubsob/muttest/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/jakubsob/muttest/actions/workflows/R-CMD-check.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/jakubsob/muttest/graph/badge.svg)](https://app.codecov.io/gh/jakubsob/muttest)
+[![cucumber](https://img.shields.io/github/actions/workflow/status/jakubsob/muttest/test-acceptance.yaml?branch=main&label=cucumber&logo=cucumber&color=23D96C&labelColor=0f2a13)](https://github.com/jakubsob/muttest/actions/workflows/test-acceptance.yaml)
+[![muttest](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jakubsob/muttest/badges/.badges/muttest.json)](https://github.com/jakubsob/muttest/actions/workflows/test-mutation.yaml)
+<!-- badges: end -->
+
+Measure quality of your tests with **{muttest}**.
+
+[covr](https://github.com/r-lib/covr) tells you how much of your code is
+executed by tests, but it tells you nothing about the quality of those
+tests.
+
+In fact, you can have tests with zero assertions and still get 100%
+coverage. That can give a false sense of security. Mutation testing
+addresses this gap.
+
+It works like this:
+
+- Define a set of code changes (mutations).
+- Run your test suite against mutated versions of your source code.
+- Measure how often the mutations are caught (i.e., cause test
+  failures).
+
+This reveals whether your tests are asserting the right things:
+
+- 0% score → Your tests pass no matter what changes. Your assertions are
+  weak.
+- 100% score → Every mutation triggers a test failure. Your tests are
+  robust.
+
+{muttest} not only gives you the score, but it also tells you tests for
+which files require improved assertions.
+
+# Example
+
+Given our codebase is:
+
+``` r
+#' R/calculate.R
+calculate <- function(x, y) {
+  (x + y) * 0
+}
+```
+
+And our tests are:
+
+``` r
+#' tests/testthat/test_calculate.R
+test_that("calculate returns a numeric", {
+  expect_true(is.numeric(calculate(2, 2))) # ❌ This assertion doesn't kill mutants
+})
+
+test_that("calculate always returns 0", {
+  expect_equal(calculate(2, 2), 0) # ✅ This assertion only kills "*" -> "/" mutant
+})
+```
+
+When running `muttest::muttest()` we’ll get a report of the mutation
+score:
+
+``` r
+plan <- muttest::plan(
+  source_files = "R/calculate.R",
+  mutators = list(
+    muttest::operator("+", "-"),
+    muttest::operator("*", "/")
+  )
+)
+
+muttest::muttest(plan)
+#> ℹ Mutation Testing
+#>   |   K |   S |   E |   T |   % | Mutator  | File
+#> x |   0 |   1 |   0 |   1 |   0 | + → -    | calculate.R
+#> ✔ |   1 |   1 |   0 |   2 |  50 | * → /    | calculate.R
+#> ── Mutation Testing Results ────────────────────────────────────────────────────
+#> [ KILLED 1 | SURVIVED 1 | ERRORS 0 | TOTAL 2 | SCORE 50.0% ]
+```
+
+The mutation score is:
+$\text{Mutation Score} = \frac{\text{Killed Mutants}}{\text{Total Mutants}} \times 100\%$,
+where a Mutant is defined as variant of the original code that is used
+to test the robustness of the test suite.
+
+In the example there were 2 mutants of the code:
+
+``` r
+#' R/calculate.R
+calculate <- function(x, y) {
+  (x - y) * 0 # mutant 1: "+" -> "-"
+}
+```
+
+``` r
+#' R/calculate.R
+calculate <- function(x, y) {
+  (x + y) / 0 # mutant 2: "*" -> "/"
+}
+```
+
+Tests are run against both variants of the code.
+
+The first test run against the first mutant will pass, because the
+result is still 0. The second test run against the second mutant will
+fail, because the result is Inf.
+
+The second test will pass against both mutants, because the result is
+still numeric.
+
+``` r
+#' tests/testthat/test_calculate.R
+test_that("calculate always returns 0", {
+  # 🟢 This test doesn't kill "+" -> "-" operator mutant: (2 - 2) * 0 = 0
+  # ❌ This test kills "*" -> "/" operator mutant: (2 + 2) / 0 = Inf
+  expect_equal(calculate(2, 2), 0)
+})
+
+test_that("calculate returns a numeric", {
+  # 🟢 This test doesn't kill "+" -> "-", (2 - 2) * 0 = 0, is numeric
+  # 🟢 This test doesn't kill "*" -> "/", (2 + 2) / 0 = Inf, is numeric
+  expect_true(is.numeric(calculate(2, 2)))
+})
+```
+
+We have killed 1 mutant out of 2, so the mutation score is 50%.
