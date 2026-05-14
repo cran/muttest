@@ -9,11 +9,13 @@ muttest(
   path = "tests/testthat",
   reporter = default_reporter(),
   test_strategy = default_test_strategy(),
-  copy_strategy = default_copy_strategy()
+  copy_strategy = default_copy_strategy(),
+  workers = 1,
+  timeout = 600 * 1000
 )
 }
 \arguments{
-\item{plan}{A data frame with the test plan. See \code{plan()}.}
+\item{plan}{A mutation testing plan. See \code{muttest_plan()}.}
 
 \item{path}{Path to the test directory.}
 
@@ -25,9 +27,16 @@ We can run all tests for each mutant, or only tests that are relevant to the mut
 
 \item{copy_strategy}{Strategy for copying the project. See \code{?CopyStrategy}.
 This strategy controls which files are copied to the temporary directory, where the tests are run.}
+
+\item{workers}{Number of parallel workers. When greater than 1, mutants are tested
+concurrently using \code{mirai} daemons. Defaults to 1 (sequential).}
+
+\item{timeout}{Per-mutant timeout in milliseconds. If a mutant's test run exceeds this
+limit the daemon is interrupted and the result is recorded as an error.
+Use \code{Inf} to disable. Defaults to 600000 (10 minutes).}
 }
 \value{
-A numeric value representing the mutation score.
+An object of class \code{muttest_result} containing the overall mutation score.
 }
 \description{
 Run a mutation test

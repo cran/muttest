@@ -1,63 +1,58 @@
-Mutator <- R6::R6Class(
-  public = list(
-    from = NULL,
-    to = NULL,
-    query = NULL,
-    initialize = function(from, to, query) {
-      self$from <- from
-      self$to <- to
-      self$query <- query
-    },
-    mutate = function(code) {
-      mutate_code(code, self)
-    },
-    # nocov start
-    print = function() {
-      cat(sprintf("Mutator: %s -> %s\n", self$from, self$to))
-      cat(sprintf("Query: %s\n", self$query))
-    }
-    # nocov end
-  )
-)
-
-#' Mutate an operator
+#' Mutate a binary operator
 #'
-#' It changes a binary operator to another one.
+#' Produces one mutant per occurrence of `from` in the source file, replacing
+#' it with `to`. A surviving mutant means your tests cannot distinguish the
+#' original operator from the replacement — pointing at the missing assertion
+#' or input value.
 #'
-#' @examples
-#' operator("==", "!=")
-#' operator(">", "<")
-#' operator("<", ">")
-#' operator("+", "-")
+#' Use this when you need a specific swap not covered by the preset collections
+#' ([arithmetic_operators()], [comparison_operators()], [logical_operators()]).
 #'
-#' @param from The operator to be replaced.
-#' @param to The operator to replace with.
+#' @param from The operator to replace (e.g. `"+"`, `"=="`, `">"`).
+#' @param to The replacement operator.
+#' @return A [Mutator] object.
+#' @seealso
+#'   [comparison_operators()], [arithmetic_operators()], [logical_operators()]
+#'   for ready-made preset lists.
+#'
+#'   `vignette("mutators", package = "muttest")` for the full operator
+#'   reference with examples of what each preset catches.
+#'
+#'   `vignette("interpreting-results", package = "muttest")` to learn how to
+#'   read surviving mutants and strengthen the tests they expose.
 #' @export
+#' @examples
+#' operator("+", "-")
+#' operator("==", "!=")
+#' operator(">", ">=")  # probe the strict vs. non-strict boundary
 operator <- function(from, to) {
+  checkmate::assert_string(from, min.chars = 1)
+  checkmate::assert_string(to, min.chars = 1)
   Mutator$new(
     from = from,
     to = to,
-    query = sprintf('(binary_operator
+    query = sprintf("(binary_operator
       lhs: (_) @lhs
       operator: _ @operator
       rhs: (_) @rhs
-      (#eq? @operator "%s")
-    )', from)
+      (#eq? @operator \"%s\")
+    )", from)
   )
 }
 
 info_oneline <- function(m) {
-  paste(m$from, cli::symbol$arrow_right, m$to)
+  paste(m$from, SYMBOLS$arrow, m$to)
 }
 
-replace <- function(code, node, mutator) {
+replace_with <- function(code, node, replacement_text) {
   start_point <- treesitter::node_start_point(node)
+  original_text <- treesitter::node_text(node)
   code[start_point$row + 1] <- paste0(
     substr(code[start_point$row + 1], 1, start_point$column),
-    mutator$to,
+    replacement_text,
     substr(
       code[start_point$row + 1],
-      start_point$column + nchar(mutator$from) + 1,
+      start_point$column + nchar(original_text) + 1,
       nchar(code[start_point$row + 1])
     )
   )
@@ -72,25 +67,36 @@ mutate_code <- function(code, mutator) {
   root_node <- treesitter::tree_root_node(tree)
 
   query <- treesitter::query(language, mutator$query)
+
+  mutations <- list()
+
   captures <- treesitter::query_captures(query, root_node)
 
   if (length(captures$node) == 0) {
     return(NULL)
   }
 
-  mutations <- list()
   for (i in seq_along(captures$node)) {
     node <- captures$node[[i]]
-    if (treesitter::node_text(node) != mutator$from) {
-      next
+    node_text <- treesitter::node_text(node)
+
+    matches_node <- if (!is.null(mutator$match_fn)) {
+      mutator$match_fn(node_text)
+    } else {
+      node_text == mutator$from
     }
-    mutations <- append(
-      mutations,
-      list(
-        replace(code, node, mutator)
-      )
-    )
+
+    if (!matches_node) next
+
+    replacement <- if (!is.null(mutator$replacement_fn)) {
+      mutator$replacement_fn(node_text)
+    } else {
+      mutator$to
+    }
+
+    mutations <- append(mutations, list(replace_with(code, node, replacement)))
   }
 
+  if (length(mutations) == 0) return(NULL)
   mutations
 }

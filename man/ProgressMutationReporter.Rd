@@ -24,6 +24,10 @@ Other MutationReporter:
 \item{\code{min_time}}{Minimum test duration to display timing information}
 
 \item{\code{col_config}}{List of column configuration for report formatting}
+
+\item{\code{survived_detail}}{Controls how survived mutants are reported (summary, none)}
+
+\item{\code{survived_mutants}}{List to store details of survived mutants for summary reporting}
 }
 \if{html}{\out{</div>}}
 }
@@ -40,6 +44,7 @@ Other MutationReporter:
 \item \href{#method-ProgressMutationReporter-end_file}{\code{ProgressMutationReporter$end_file()}}
 \item \href{#method-ProgressMutationReporter-cr}{\code{ProgressMutationReporter$cr()}}
 \item \href{#method-ProgressMutationReporter-end_reporter}{\code{ProgressMutationReporter$end_reporter()}}
+\item \href{#method-ProgressMutationReporter-print}{\code{ProgressMutationReporter$print()}}
 \item \href{#method-ProgressMutationReporter-clone}{\code{ProgressMutationReporter$clone()}}
 }
 }
@@ -130,7 +135,8 @@ Initialize a new progress reporter
 \if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$new(
   test_reporter = "silent",
   min_time = 1,
-  file = stdout()
+  file = stdout(),
+  survived_detail = c("summary", "none")
 )}\if{html}{\out{</div>}}
 }
 
@@ -142,6 +148,9 @@ Initialize a new progress reporter
 \item{\code{min_time}}{Minimum time to show elapsed time (default: 1s)}
 
 \item{\code{file}}{Output destination (default: stdout)}
+
+\item{\code{survived_detail}}{Controls how survived mutants are reported.
+One of \code{"summary"} (default) or \code{"none"}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -169,19 +178,33 @@ Start reporter
 \subsection{Method \code{add_result()}}{
 Add a mutation test result
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$add_result(plan, killed, survived, errors)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$add_result(
+  plan,
+  killed,
+  survived,
+  errors,
+  error = NULL,
+  original_code = NULL,
+  mutated_code = NULL
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{plan}}{Current testing plan. See \code{plan()}.}
+\item{\code{plan}}{Current testing plan. See \code{muttest_plan()}.}
 
 \item{\code{killed}}{Whether the mutation was killed by tests}
 
 \item{\code{survived}}{Number of survived mutations}
 
 \item{\code{errors}}{Number of errors encountered}
+
+\item{\code{error}}{Optional error condition from a failed run}
+
+\item{\code{original_code}}{Original source lines before mutation}
+
+\item{\code{mutated_code}}{Mutated source lines}
 }
 \if{html}{\out{</div>}}
 }
@@ -230,6 +253,16 @@ Carriage return if dynamic, newline otherwise
 End reporter with detailed summary
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$end_reporter()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-ProgressMutationReporter-print"></a>}}
+\if{latex}{\out{\hypertarget{method-ProgressMutationReporter-print}{}}}
+\subsection{Method \code{print()}}{
+Print the mutation test result with survived diffs
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$print()}\if{html}{\out{</div>}}
 }
 
 }

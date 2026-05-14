@@ -1,0 +1,84 @@
+---
+title: "Getting Started with muttest"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with muttest}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+source("engine.R")
+```
+
+This guide walks you through your first mutation test run, from setup to interpreting results.
+
+## Prerequisites
+
+`muttest` works with R packages with `testthat` tests out of the box. If you're not using a package structure, or not using `testthat`, see `?TestStrategy` for configuration options.
+
+## Step 1 — Pick a source file to mutate
+
+Start small. Choose one file from `R/` that contains meaningful logic — branching, arithmetic, comparisons. Avoid files that are mostly glue code or just call other functions.
+
+## Step 2 — Define a test plan
+
+A test plan describes *what* to mutate and *which* mutations to apply:
+
+```r
+library(muttest)
+
+plan <- muttest_plan(
+  source_files = "R/is_adult.R",
+  mutators = comparison_operators()
+)
+```
+
+`comparison_operators()` is a preset that generates mutants by swapping each comparison operator for related alternatives. For `>=` it produces two mutants: `>=` → `>` and `>=` → `<=`.
+
+## Step 3 — Run the tests
+
+```r
+muttest::muttest(plan, "tests/testthat")
+```
+
+## Step 4 — Read the output and improve your tests
+
+Each column in the progress table means:
+
+| Column | Meaning                                         |
+| ------ | ----------------------------------------------- |
+| K      | Killed — mutants your tests caught              |
+| S      | Survived — mutants your tests missed            |
+| E      | Errors — mutants that caused unexpected errors  |
+| T      | Total mutants for this mutator/file combination |
+| %      | Mutation score for this row                     |
+
+The **mutation score** is `Killed / Total × 100%`. A `✔` row means at least one mutant was killed; an `x` row means all mutants survived.
+
+Here is a complete example showing a weak test, the live output, and the fix:
+
+```{muttest_example}
+boundary
+```
+
+## The feedback loop
+
+1. Write tests
+2. Run muttest
+3. Find survivors
+4. Strengthen tests
+5. Repeat
+
+
+Start with one file. Aim for a meaningful score improvement each iteration rather than chasing 100% immediately. A score of 80%+ on critical business logic can be a reasonable target to start from.
+
+## Next steps
+
+- [What is Mutation Testing?](mutation-testing-101.html) — conceptual background and when mutation testing pays off most
+- [Mutator Reference](mutators.html) — all available mutators and how to pick the right ones
+- [CI Integration](ci-integration.html) — run mutation tests automatically on every push

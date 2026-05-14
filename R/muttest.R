@@ -1,6 +1,6 @@
 #' Run a mutation test
 #'
-#' @param plan A data frame with the test plan. See `plan()`.
+#' @param plan A mutation testing plan. See `muttest_plan()`.
 #' @param path Path to the test directory.
 #' @param reporter Reporter to use for mutation testing results. See `?MutationReporter`.
 #' @param test_strategy Strategy for running tests. See `?TestStrategy`.
@@ -8,21 +8,28 @@
 #'   We can run all tests for each mutant, or only tests that are relevant to the mutant.
 #' @param copy_strategy Strategy for copying the project. See `?CopyStrategy`.
 #'   This strategy controls which files are copied to the temporary directory, where the tests are run.
+#' @param workers Number of parallel workers. When greater than 1, mutants are tested
+#'   concurrently using `mirai` daemons. Defaults to 1 (sequential).
+#' @param timeout Per-mutant timeout in milliseconds. If a mutant's test run exceeds this
+#'   limit the daemon is interrupted and the result is recorded as an error.
+#'   Use `Inf` to disable. Defaults to 600000 (10 minutes).
 #'
-#' @return A numeric value representing the mutation score.
+#' @return An object of class `muttest_result` containing the overall mutation score.
 #'
 #' @export
 #' @md
-#' @importFrom rlang .data
 muttest <- function(
   plan,
   path = "tests/testthat",
   reporter = default_reporter(),
   test_strategy = default_test_strategy(),
-  copy_strategy = default_copy_strategy()
+  copy_strategy = default_copy_strategy(),
+  workers = 1,
+  timeout = 600 * 1000
 ) {
   checkmate::assert_directory_exists(path)
   checkmate::assert(
+    checkmate::check_multi_class(plan, "muttest_plan"),
     checkmate::check_data_frame(plan),
     checkmate::check_set_equal(
       c("filename", "original_code", "mutated_code", "mutator"),
@@ -33,6 +40,8 @@ muttest <- function(
   checkmate::assert_class(reporter, "MutationReporter")
   checkmate::assert_class(test_strategy, "TestStrategy", null.ok = TRUE)
   checkmate::assert_class(copy_strategy, "CopyStrategy")
+  checkmate::assert_count(workers, positive = TRUE)
+  checkmate::assert_number(timeout, lower = 0)
 
   if (nrow(plan) == 0) {
     return(invisible(NA_real_))
@@ -40,53 +49,123 @@ muttest <- function(
 
   reporter$start_reporter(plan)
 
-  plan |>
-    dplyr::arrange(.data$filename, .data$mutator) |>
-    dplyr::rowwise() |>
-    dplyr::group_split() |>
-    purrr::walk(\(row) {
-      mutator <- row$mutator[[1]]
-      filename <- row$filename
-      mutated_code <- row$mutated_code[[1]]
+  mutator_key <- vapply(plan$mutator, function(m) m$from, character(1))
+  plan <- plan[order(plan$filename, mutator_key), ]
+  rows <- lapply(seq_len(nrow(plan)), function(i) plan[i, , drop = FALSE])
 
-      reporter$start_file(filename)
-      reporter$start_mutator(mutator)
-      reporter$update(force = TRUE)
+  mirai::daemons(workers)
+  on.exit(mirai::daemons(0), add = TRUE)
 
-      dir <- copy_strategy$execute(getwd(), row)
-      checkmate::assert_directory_exists(dir)
-      on.exit(fs::dir_delete(dir))
-      withr::with_tempdir(tmpdir = dir, pattern = "", {
-        withr::with_dir(dir, {
-          temp_filename <- file.path(dir, filename)
-          writeLines(mutated_code, temp_filename)
+  wd <- getwd()
+  test_reporter <- reporter$test_reporter
+  timeout_ms <- if (is.finite(timeout)) as.integer(timeout) else NULL
 
-          test_results <- test_strategy$execute(
-            path = path,
-            plan = row,
-            reporter = reporter$test_reporter
-          )
-          checkmate::assert_class(test_results, "testthat_results")
-        })
-      })
+  tasks <- lapply(rows, function(row) {
+    reporter$start_file(row$filename)
+    reporter$start_mutator(row$mutator[[1]])
+    reporter$update(force = TRUE)
 
-      test_results_tibble <- tibble::as_tibble(test_results)
-      killed <- as.numeric(sum(test_results_tibble$failed) > 0)
-      survived <- as.numeric(sum(test_results_tibble$failed) == 0)
-      errors <- sum(test_results_tibble$error)
+    filename <- row$filename
+    mutated_code <- row$mutated_code[[1]]
 
-      reporter$add_result(
+    # Pass only plain serializable data - row$mutator contains treesitter
+    # C-level objects that cannot cross process boundaries.
+    mirai::mirai(
+      {
+        # Reconstruct a minimal row so strategies can access $filename
+        minimal_row <- data.frame(
+          filename = filename,
+          mutated_code = I(list(mutated_code)),
+          stringsAsFactors = FALSE
+        )
+        dir <- copy_strategy$execute(wd, minimal_row)
+        on.exit(fs::dir_delete(dir))
+        test_results <- tryCatch(
+          withr::with_tempdir(tmpdir = dir, pattern = "", {
+            withr::with_dir(dir, {
+              writeLines(mutated_code, file.path(dir, filename))
+              test_strategy$execute(path, minimal_row, test_reporter)
+            })
+          }),
+          error = function(e) e
+        )
+        list(test_results = test_results)
+      },
+      copy_strategy = copy_strategy,
+      test_strategy = test_strategy,
+      wd = wd,
+      filename = filename,
+      mutated_code = mutated_code,
+      path = path,
+      test_reporter = test_reporter,
+      .timeout = timeout_ms
+    )
+  })
+
+  for (i in seq_along(tasks)) {
+    res <- tasks[[i]][] # blocks until the task resolves
+    row <- rows[[i]]
+    if (mirai::is_error_value(res) && !mirai::is_mirai_error(res)) {
+      .record_result(
+        reporter,
         row,
-        killed,
-        survived,
-        errors
+        simpleError("Timed out"),
+        row$mutated_code[[1]]
       )
-      reporter$end_mutator()
-      reporter$end_file()
-    })
+    } else if (mirai::is_error_value(res)) {
+      .record_result(
+        reporter,
+        row,
+        simpleError(format(res)),
+        row$mutated_code[[1]]
+      )
+    } else {
+      .record_result(reporter, row, res$test_results, row$mutated_code[[1]])
+    }
+  }
 
   reporter$end_reporter()
-  invisible(reporter$get_score())
+  invisible(muttest_result(reporter))
+}
+
+muttest_result <- function(reporter) {
+  structure(
+    reporter$get_score(),
+    reporter = reporter,
+    class = c("muttest_result", "numeric")
+  )
+}
+
+#' @export
+print.muttest_result <- function(x, ...) {
+  attr(x, "reporter")$print()
+  invisible(x)
+}
+
+.record_result <- function(reporter, row, test_results, mutated_code) {
+  if (inherits(test_results, "error")) {
+    reporter$add_result(
+      row,
+      killed = 0,
+      survived = 0,
+      errors = 1,
+      error = test_results,
+      original_code = row$original_code[[1]],
+      mutated_code = mutated_code
+    )
+  } else {
+    df <- as.data.frame(test_results)
+    reporter$add_result(
+      row,
+      killed = as.numeric(sum(df$failed) > 0),
+      survived = as.numeric(sum(df$failed) == 0),
+      errors = sum(df$error),
+      original_code = row$original_code[[1]],
+      mutated_code = mutated_code
+    )
+  }
+  reporter$end_mutator()
+  reporter$end_file()
 }
 
 #' Create a plan for mutation testing
@@ -109,35 +188,80 @@ muttest <- function(
 #'
 #' @export
 #' @md
-plan <- function(
+muttest_plan <- function(
   mutators,
   source_files = fs::dir_ls("R", regexp = ".[rR]$")
 ) {
   checkmate::assert_file_exists(source_files, extension = c("R", "r"))
   checkmate::assert_list(mutators)
-  map_dfr <- purrr::compose(dplyr::bind_rows, purrr::map)
-  map_dfr(mutators, function(mutator) {
-    map_dfr(source_files, function(filename) {
+  rows <- list()
+  for (mutator in mutators) {
+    for (filename in source_files) {
       code_lines <- readLines(filename)
       mutations <- mutator$mutate(code_lines)
-      if (length(mutations) == 0) {
-        return(
-          tibble::tibble(
-            filename = character(),
-            original_code = list(character()),
-            mutated_code = list(character()),
-            mutator = list(mutator)
-          )
-        )
-      }
-      map_dfr(mutations, function(mutation) {
-        tibble::tibble(
+      for (mutation in mutations) {
+        row <- data.frame(
           filename = filename,
-          original_code = list(code_lines),
-          mutated_code = list(mutation),
-          mutator = list(mutator)
+          original_code = I(list(code_lines)),
+          mutated_code = I(list(mutation)),
+          mutator = I(list(mutator)),
+          stringsAsFactors = FALSE
         )
-      })
-    })
-  })
+        rows <- c(rows, list(row))
+      }
+    }
+  }
+  if (length(rows) == 0) {
+    return(.muttest_plan(data.frame(
+      filename = character(),
+      original_code = I(list()),
+      mutated_code = I(list()),
+      mutator = I(list()),
+      stringsAsFactors = FALSE
+    )))
+  }
+  .muttest_plan(do.call(rbind, rows))
+}
+
+.muttest_plan <- function(x) {
+  structure(x, class = c("muttest_plan", class(x)))
+}
+
+#' @export
+print.muttest_plan <- function(x, ..., nrows = 10) {
+  n_mutants <- nrow(x)
+  n_files <- length(unique(x$filename))
+
+  cli::cat_rule(cli::style_bold("Mutation Test Plan"))
+  cli::cat_line(sprintf(
+    "%d %s across %d %s",
+    n_mutants,
+    ngettext(n_mutants, "mutant", "mutants"),
+    n_files,
+    ngettext(n_files, "file", "files")
+  ))
+  cli::cat_line()
+
+  shown <- x[seq_len(min(nrows, n_mutants)), ]
+  for (i in seq_len(nrow(shown))) {
+    m <- shown$mutator[[i]]
+    cli::cat_line(paste0(
+      cli::col_grey(shown$filename[[i]]),
+      "  ",
+      cli::style_bold(m$from),
+      paste0(" ", SYMBOLS$arrow, " "),
+      cli::style_bold(m$to)
+    ))
+  }
+
+  if (n_mutants > nrows) {
+    cli::cat_line()
+    cli::cat_line(cli::col_grey(sprintf(
+      "... and %d more %s",
+      n_mutants - nrows,
+      ngettext(n_mutants - nrows, "mutant", "mutants")
+    )))
+  }
+
+  invisible(x)
 }

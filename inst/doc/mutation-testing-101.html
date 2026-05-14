@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>What is Mutation Testing and Why Does it Matter?</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">What is Mutation Testing and Why Does it
+Matter?</h1>
+
+
+
+<div id="code-coverage-is-not-test-quality" class="section level2">
+<h2>Code coverage is not test quality</h2>
+<p>If you use <code>covr</code>, you know that 80% coverage means 80% of
+your lines ran during tests. What it does not mean is that those tests
+would catch a bug.</p>
+<p>Here is a concrete example. This function has a subtle operator
+bug:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># R/stats.R</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>above_threshold <span class="ot">&lt;-</span> <span class="cf">function</span>(x, threshold) {</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>  x <span class="sc">&gt;</span> threshold   <span class="co"># should this be &gt;= ?</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>}</span></code></pre></div>
+<p>And this test achieves 100% line coverage:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">test_that</span>(<span class="st">&quot;above_threshold works&quot;</span>, {</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  result <span class="ot">&lt;-</span> <span class="fu">above_threshold</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">5</span>, <span class="dv">10</span>), <span class="dv">3</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="fu">expect_true</span>(<span class="fu">is.logical</span>(result))</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="fu">expect_length</span>(result, <span class="dv">3</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>})</span></code></pre></div>
+<p>The function runs. The test passes. Coverage is 100%. But
+<code>&gt;</code> could be replaced with <code>&gt;=</code>,
+<code>&lt;</code>, or <code>==</code> and this test would still pass —
+because it never checks the actual values, only the type and length.</p>
+<p><strong>Coverage measures execution. Mutation testing measures
+detection.</strong></p>
+</div>
+<div id="what-a-mutant-is" class="section level2">
+<h2>What a mutant is</h2>
+<p>A mutant is a copy of your source code with one small, deliberate
+change — an operator swap, a flipped condition, a replaced constant. The
+idea is to simulate the kind of mistake a developer might actually
+make.</p>
+<p>For the function above, <code>muttest</code> could generate mutants
+like:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># mutant 1: &gt; → &gt;=</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>above_threshold <span class="ot">&lt;-</span> <span class="cf">function</span>(x, threshold) {</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  x <span class="sc">&gt;=</span> threshold</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>}</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co"># mutant 2: &gt; → &lt;</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>above_threshold <span class="ot">&lt;-</span> <span class="cf">function</span>(x, threshold) {</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  x <span class="sc">&lt;</span> threshold</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>}</span></code></pre></div>
+<p>Your test suite runs against each mutant. If the tests fail, the
+mutant is <strong>killed</strong> — your tests noticed the change. If
+the tests pass, the mutant <strong>survived</strong> — your tests are
+blind to that kind of bug.</p>
+</div>
+<div id="kill-vs-survive" class="section level2">
+<h2>Kill vs survive</h2>
+<table>
+<colgroup>
+<col width="12%" />
+<col width="87%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Outcome</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Killed</td>
+<td>At least one test failed. Your tests caught this mutation.</td>
+</tr>
+<tr class="even">
+<td>Survived</td>
+<td>All tests passed. Your tests did not detect this change.</td>
+</tr>
+<tr class="odd">
+<td>Error</td>
+<td>The mutated code caused an unexpected runtime error.</td>
+</tr>
+</tbody>
+</table>
+<p>Survivors are the interesting ones. Each surviving mutant points to a
+specific gap: a mutation your tests cannot distinguish from the original
+code. That is a candidate for a stronger test.</p>
+</div>
+<div id="the-mutation-score" class="section level2">
+<h2>The mutation score</h2>
+<pre><code>Mutation Score = (Killed Mutants / Total Mutants) × 100%</code></pre>
+<ul>
+<li><strong>0%</strong> — Your tests pass regardless of what the code
+does. Assertions are missing or trivial.</li>
+<li><strong>100%</strong> — Every mutation your tests can detect is
+detected. Your tests are very specific.</li>
+</ul>
+<p>No project needs a perfect score on every file. The goal is to use
+the score directionally: find the files where survivors cluster, and
+strengthen those tests first.</p>
+</div>
+<div id="the-llm-generated-tests-problem" class="section level2">
+<h2>The LLM-generated tests problem</h2>
+<p>Many R programmers reach for LLMs (ChatGPT, Claude, Copilot) to write
+tests. This can be a useful shortcut — LLMs write syntactically correct
+tests quickly, and for boilerplate cases they can work well.</p>
+<p>LLMs might produce assertions that are easy to satisfy — tests that
+pass but don’t deeply verify correctness:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Typical LLM output for above_threshold():</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">test_that</span>(<span class="st">&quot;above_threshold returns logical vector&quot;</span>, {</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="fu">expect_true</span>(<span class="fu">is.logical</span>(<span class="fu">above_threshold</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">5</span>), <span class="dv">3</span>)))</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>})</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="fu">test_that</span>(<span class="st">&quot;above_threshold handles length&quot;</span>, {</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  <span class="fu">expect_equal</span>(<span class="fu">length</span>(<span class="fu">above_threshold</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">2</span>)), <span class="dv">5</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>})</span></code></pre></div>
+<p>Both tests pass. Both would pass against every mutant of
+<code>above_threshold</code>. These tests document the shape of the
+output but say nothing about its correctness — a pattern that can appear
+in LLM-generated tests.</p>
+<p>This is not a criticism of LLMs. But it means mutation testing is a
+useful way to check how strong those tests actually are:</p>
+<blockquote>
+<p><strong>LLM-generated tests need external validation just as much as
+human-written tests do.</strong></p>
+</blockquote>
+<p>Mutation testing provides that validation. Run <code>muttest</code>
+on any file where the tests were AI-generated. A low score does not mean
+the LLM did a bad job — it means you now know exactly where to add
+better assertions.</p>
+</div>
+<div id="when-mutation-testing-pays-off-most" class="section level2">
+<h2>When mutation testing pays off most</h2>
+<p>Mutation testing is most valuable when:</p>
+<ul>
+<li><strong>The logic is complex</strong> — branching conditions,
+arithmetic formulas, comparison chains. These produce many mutants, and
+survivors are easy to fix with targeted test cases.</li>
+<li><strong>The code is critical</strong> — financial calculations, data
+validation, model thresholds. A bug here has real consequences; extra
+confidence is worth the investment.</li>
+<li><strong>Tests were generated automatically</strong> — by an LLM, a
+code generator, or a template. These tests are the most likely to have
+weak assertions.</li>
+<li><strong>Coverage is already high but bugs still slip
+through</strong> — a common symptom of assertion-light test suites.</li>
+</ul>
+</div>
+<div id="when-it-is-less-useful" class="section level2">
+<h2>When it is less useful</h2>
+<ul>
+<li><strong>Simple functions</strong> — functions that read a file and
+return its contents, or just call another function. There is little
+logic to mutate.</li>
+<li><strong>Snapshot testing</strong> — in snapshot testing oftentimes
+every little change in the code breaks the snapshot. It’s very likely
+that every mutant will be killed, providing little useful feedback.</li>
+<li><strong>Very slow test suites</strong> — mutation testing multiplies
+your test runtime by the number of mutants. Start with fast unit tests
+before applying it to slower tests.</li>
+</ul>
+</div>
+<div id="how-it-relates-to-covr" class="section level2">
+<h2>How it relates to covr</h2>
+<p>These tools answer different questions and complement each other:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Tool</th>
+<th>Question answered</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>covr</code></td>
+<td>Which lines does my test suite execute?</td>
+</tr>
+<tr class="even">
+<td><code>muttest</code></td>
+<td>Which bugs would my test suite detect?</td>
+</tr>
+</tbody>
+</table>
+<p>A practical workflow: use <code>covr</code> to find untested code,
+then use <code>muttest</code> on the covered code to find weakly-tested
+logic. High coverage + high mutation score = genuinely robust tests.</p>
+</div>
+<div id="next-steps" class="section level2">
+<h2>Next steps</h2>
+<ul>
+<li><a href="getting-started.html">Getting Started</a> — run your first
+mutation test in minutes</li>
+<li><a href="mutators.html">Mutator Reference</a> — which mutations to
+apply and when</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

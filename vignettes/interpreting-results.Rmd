@@ -1,0 +1,67 @@
+---
+title: "Reading mutation results and strengthening tests"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Reading mutation results and strengthening tests}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+source("engine.R")
+```
+
+The mutation score is only useful if you know how to read it. This article walks through three real scenarios — one for each operator class — showing what a surviving mutant looks like in the output, what it tells you about your tests, and exactly what to change.
+
+## The output table
+
+Every `muttest::muttest()` run produces a table with one row per mutator/file pair:
+
+| Column | Meaning                                                                                      |
+| ------ | -------------------------------------------------------------------------------------------- |
+| K      | **Killed** — mutants that caused at least one test to fail. Your tests caught the change.    |
+| S      | **Survived** — mutants that passed all tests. Your tests did not notice the change.          |
+| E      | **Errors** — mutants that produced a parse or execution error (neither killed nor survived). |
+| T      | **Total** — mutants generated for this mutator/file pair.                                    |
+| %      | **Score** — `K / (K + S) × 100`.                                                             |
+
+A `✔` row means at least one mutant was killed. An `x` row means every mutant survived — your tests passed unchanged.
+
+## What the score tells you
+
+| Score | Signal                                                                                   |
+| ----- | ---------------------------------------------------------------------------------------- |
+| 0%    | Your assertions do not constrain the outcome. Tests pass no matter what.                 |
+| 1–99% | Some cases are well-tested; others are not. The survivors point at the gaps.             |
+| 100%  | Every generated mutant was caught. Your tests are robust against these specific changes. |
+
+A 100% score does not mean there are no bugs — it means there are no untested bugs *of the kinds the mutators probe*. Start with the survivors; they are the actionable signal.
+
+---
+
+```{muttest_examples}
+shipping, mad, access # nolint
+```
+
+---
+
+## Summary: three patterns, three fixes
+
+| Surviving mutant        | Root cause                                 | Fix                                                                       |
+| ----------------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| Comparison (`>=` → `>`) | Boundary value never tested                | Add a test that passes the exact threshold value                          |
+| Arithmetic (`-` → `+`)  | Assertion checks direction, not value      | Replace `expect_gt/gte` with `expect_equal` and a computed expected value |
+| Logical (`\|\|` → `&&`) | Symmetric inputs (both true or both false) | Add a test with asymmetric inputs (one true, one false)                   |
+
+The feedback loop is:
+
+1. Run muttest
+2. Find survivors
+3. Strengthen tests
+4. Repeat
+
+Start with one file and one mutator preset. Look at what survives. The survivor names the exact mutant that your tests cannot distinguish — that is your actionable signal.
