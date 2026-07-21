@@ -1,7 +1,7 @@
 Package: muttest
 Type: Package
 Title: Mutation Testing
-Version: 0.2.1
+Version: 0.3.0
 Authors@R: c(
     person(
       "Jakub", "Sobolewski",
@@ -19,16 +19,17 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 RoxygenNote: 7.3.3
 Depends: R (>= 4.1.0)
-Imports: checkmate, cli, fs, mirai, R6, rlang, testthat, treesitter,
-        treesitter.r (>= 1.3.0), withr
+Imports: checkmate, cli, digest, fs, htmltools, jsonlite, mirai, R6,
+        rlang, testthat, tools, treesitter, treesitter.r (>= 1.3.0),
+        withr
 Config/testthat/edition: 3
-URL: https://jakubsobolewski.com/muttest/
-Suggests: box, covr, cucumber (>= 2.1.0), ggplot2, knitr, purrr,
-        rmarkdown, shiny, stringr
+URL: https://jakubsob.github.io/muttest/
+Suggests: box, covr, cucumber (>= 2.1.0), ggplot2, jsonvalidate, knitr,
+        purrr, rmarkdown, shiny, stringr
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2026-06-24 13:58:51 UTC; jakubsobolewski
+Packaged: 2026-07-21 12:13:22 UTC; runner
 Author: Jakub Sobolewski [aut, cre]
 Maintainer: Jakub Sobolewski <jakupsob@gmail.com>
 Repository: CRAN
-Date/Publication: 2026-06-24 14:30:02 UTC
+Date/Publication: 2026-07-21 12:30:19 UTC

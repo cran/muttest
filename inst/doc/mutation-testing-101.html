@@ -48,9 +48,8 @@ overflow: visible;
 }
 </style>
 <style type="text/css" data-origin="pandoc">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -392,8 +391,8 @@ blind to that kind of bug.</p>
 <h2>Kill vs survive</h2>
 <table>
 <colgroup>
-<col width="12%" />
-<col width="87%" />
+<col width="11%" />
+<col width="88%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -412,7 +411,12 @@ blind to that kind of bug.</p>
 </tr>
 <tr class="odd">
 <td>Error</td>
-<td>The mutated code caused an unexpected runtime error.</td>
+<td>The mutated code errored. The change was still detected, so it
+counts as killed.</td>
+</tr>
+<tr class="even">
+<td>No coverage</td>
+<td>No test exercised the mutant. Excluded from the score.</td>
 </tr>
 </tbody>
 </table>
@@ -422,7 +426,10 @@ code. That is a candidate for a stronger test.</p>
 </div>
 <div id="the-mutation-score" class="section level2">
 <h2>The mutation score</h2>
-<pre><code>Mutation Score = (Killed Mutants / Total Mutants) × 100%</code></pre>
+<pre><code>Mutation Score = (Killed + Errors) / (Killed + Survived + Errors) × 100%</code></pre>
+<p>Errored mutants count as detected (killed); mutants with no test
+coverage are excluded — an untested mutant says nothing about test
+quality.</p>
 <ul>
 <li><strong>0%</strong> — Your tests pass regardless of what the code
 does. Assertions are missing or trivial.</li>

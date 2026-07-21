@@ -41,6 +41,12 @@ ProgressMutationReporter <- R6::R6Class(
         width = 5,
         type = "number"
       ),
+      "n" = list(
+        padding_left = 1,
+        padding_right = 1,
+        width = 5,
+        type = "number"
+      ),
       "e" = list(
         padding_left = 1,
         padding_right = 1,
@@ -156,6 +162,8 @@ ProgressMutationReporter <- R6::R6Class(
         "|",
         self$format_column("S", "s", cli::col_red),
         "|",
+        self$format_column("N", "n", cli::col_grey),
+        "|",
         self$format_column("E", "e", cli::col_yellow),
         "|",
         self$format_column("T", "t"),
@@ -172,19 +180,22 @@ ProgressMutationReporter <- R6::R6Class(
     #' @param status Status symbol (e.g., tick or cross)
     #' @param k Number of killed mutations
     #' @param s Number of survived mutations
+    #' @param n Number of mutations with no test coverage
     #' @param e Number of errors
     #' @param t Total number of mutations
     #' @param score Score percentage
     #' @param mutator The mutator used
     #' @param file The file being tested
     #' @return Formatted row string
-    fmt_r = function(status, k, s, e, t, score, mutator, file) {
+    fmt_r = function(status, k, s, n, e, t, score, mutator, file) {
       paste0(
         status,
         " |",
         self$format_column(as.character(k), "k"),
         "|",
         self$format_column(as.character(s), "s"),
+        "|",
+        self$format_column(as.character(n), "n"),
         "|",
         self$format_column(as.character(e), "e"),
         "|",
@@ -232,6 +243,7 @@ ProgressMutationReporter <- R6::R6Class(
     #' @param plan Current testing plan. See `muttest_plan()`.
     #' @param killed Whether the mutation was killed by tests
     #' @param survived Number of survived mutations
+    #' @param no_coverage Number of mutants with no test coverage
     #' @param errors Number of errors encountered
     #' @param error Optional error condition from a failed run
     #' @param original_code Original source lines before mutation
@@ -240,15 +252,18 @@ ProgressMutationReporter <- R6::R6Class(
       plan,
       killed,
       survived,
+      no_coverage,
       errors,
       error = NULL,
       original_code = NULL,
       mutated_code = NULL
     ) {
-      super$add_result(plan, killed, survived, errors, error)
+      super$add_result(plan, killed, survived, no_coverage, errors, error)
 
       status_symbol <- if (killed) {
         cli::col_green(cli::symbol$tick)
+      } else if (no_coverage) {
+        cli::col_grey("-")
       } else {
         cli::col_red("x")
       }
@@ -257,15 +272,21 @@ ProgressMutationReporter <- R6::R6Class(
       mutator <- plan$mutator[[1]]
       k <- self$results[[filename]]$killed
       s <- self$results[[filename]]$survived
+      n <- self$results[[filename]]$no_coverage
       t <- self$results[[filename]]$total
       e <- self$results[[filename]]$errors
       file_name <- basename(filename)
-      score <- floor(self$current_score * 100)
+      score <- if (is.na(self$current_score)) {
+        "-"
+      } else {
+        floor(self$current_score * 100)
+      }
 
       self$cat_line(self$fmt_r(
         status_symbol,
         k,
         s,
+        n,
         e,
         t,
         score,
@@ -297,11 +318,6 @@ ProgressMutationReporter <- R6::R6Class(
       super$end_file()
     },
 
-    #' @description Carriage return if dynamic, newline otherwise
-    # nocov start
-    cr = function() {},
-    # nocov end
-
     #' @description End reporter with detailed summary
     end_reporter = function() {
       self$cat_line()
@@ -314,21 +330,7 @@ ProgressMutationReporter <- R6::R6Class(
         )))
       }
 
-      if (
-        self$survived_detail == "summary" &&
-          length(self$survived_mutants) > 0
-      ) {
-        self$cat_line()
-        self$rule(cli::style_bold("Survived Mutants"))
-        for (entry in self$survived_mutants) {
-          private$print_survived_diff(
-            entry$original_code,
-            entry$mutated_code,
-            entry$file_path,
-            entry$mutator
-          )
-        }
-      }
+      private$cat_survived_mutants()
 
       private$cat_stats()
       self$cat_line()
@@ -339,22 +341,27 @@ ProgressMutationReporter <- R6::R6Class(
     #' @description Print the mutation test result with survived diffs
     print = function() {
       private$cat_stats()
-      if (length(self$survived_mutants) > 0) {
-        self$cat_line()
-        self$rule(cli::style_bold("Survived Mutants"))
-        for (entry in self$survived_mutants) {
-          private$print_survived_diff(
-            entry$original_code,
-            entry$mutated_code,
-            entry$file_path,
-            entry$mutator
-          )
-        }
-      }
+      private$cat_survived_mutants()
       invisible(self)
     }
   ),
   private = list(
+    cat_survived_mutants = function() {
+      if (length(self$survived_mutants) == 0) {
+        return(invisible(NULL))
+      }
+      self$cat_line()
+      self$rule(cli::style_bold("Survived Mutants"))
+      for (entry in self$survived_mutants) {
+        private$print_survived_diff(
+          entry$original_code,
+          entry$mutated_code,
+          entry$file_path,
+          entry$mutator
+        )
+      }
+    },
+
     print_survived_diff = function(
       original_code,
       mutated_code,
@@ -393,6 +400,7 @@ ProgressMutationReporter <- R6::R6Class(
       results <- do.call(rbind, lapply(self$results, as.data.frame))
       k <- sum(results$killed)
       s <- sum(results$survived)
+      n <- sum(results$no_coverage)
       t <- sum(results$total)
       e <- sum(results$errors)
       score <- self$current_score
@@ -405,6 +413,9 @@ ProgressMutationReporter <- R6::R6Class(
         " | ",
         cli::col_red("SURVIVED "),
         s,
+        " | ",
+        cli::col_grey("NO COVERAGE "),
+        n,
         " | ",
         cli::col_yellow("ERRORS "),
         e,

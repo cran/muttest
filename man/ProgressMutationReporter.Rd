@@ -9,6 +9,8 @@ It provides real-time feedback on which mutants are being tested and whether the
 }
 \seealso{
 Other MutationReporter: 
+\code{\link{JSONMutationReporter}},
+\code{\link{MultiReporter}},
 \code{\link{MutationReporter}},
 \code{\link{default_reporter}()}
 }
@@ -42,7 +44,6 @@ Other MutationReporter:
 \item \href{#method-ProgressMutationReporter-add_result}{\code{ProgressMutationReporter$add_result()}}
 \item \href{#method-ProgressMutationReporter-update}{\code{ProgressMutationReporter$update()}}
 \item \href{#method-ProgressMutationReporter-end_file}{\code{ProgressMutationReporter$end_file()}}
-\item \href{#method-ProgressMutationReporter-cr}{\code{ProgressMutationReporter$cr()}}
 \item \href{#method-ProgressMutationReporter-end_reporter}{\code{ProgressMutationReporter$end_reporter()}}
 \item \href{#method-ProgressMutationReporter-print}{\code{ProgressMutationReporter$print()}}
 \item \href{#method-ProgressMutationReporter-clone}{\code{ProgressMutationReporter$clone()}}
@@ -52,7 +53,6 @@ Other MutationReporter:
 <details><summary>Inherited methods</summary>
 <ul>
 <li><span class="pkg-link" data-pkg="muttest" data-topic="MutationReporter" data-id="cat_line"><a href='../../muttest/html/MutationReporter.html#method-MutationReporter-cat_line'><code>muttest::MutationReporter$cat_line()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="muttest" data-topic="MutationReporter" data-id="cat_tight"><a href='../../muttest/html/MutationReporter.html#method-MutationReporter-cat_tight'><code>muttest::MutationReporter$cat_tight()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="muttest" data-topic="MutationReporter" data-id="end_mutator"><a href='../../muttest/html/MutationReporter.html#method-MutationReporter-end_mutator'><code>muttest::MutationReporter$end_mutator()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="muttest" data-topic="MutationReporter" data-id="get_score"><a href='../../muttest/html/MutationReporter.html#method-MutationReporter-get_score'><code>muttest::MutationReporter$get_score()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="muttest" data-topic="MutationReporter" data-id="rule"><a href='../../muttest/html/MutationReporter.html#method-MutationReporter-rule'><code>muttest::MutationReporter$rule()</code></a></span></li>
@@ -98,7 +98,7 @@ Format the header of the report
 \subsection{Method \code{fmt_r()}}{
 Format a row of the report
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$fmt_r(status, k, s, e, t, score, mutator, file)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$fmt_r(status, k, s, n, e, t, score, mutator, file)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -109,6 +109,8 @@ Format a row of the report
 \item{\code{k}}{Number of killed mutations}
 
 \item{\code{s}}{Number of survived mutations}
+
+\item{\code{n}}{Number of mutations with no test coverage}
 
 \item{\code{e}}{Number of errors}
 
@@ -182,6 +184,7 @@ Add a mutation test result
   plan,
   killed,
   survived,
+  no_coverage,
   errors,
   error = NULL,
   original_code = NULL,
@@ -197,6 +200,8 @@ Add a mutation test result
 \item{\code{killed}}{Whether the mutation was killed by tests}
 
 \item{\code{survived}}{Number of survived mutations}
+
+\item{\code{no_coverage}}{Number of mutants with no test coverage}
 
 \item{\code{errors}}{Number of errors encountered}
 
@@ -233,16 +238,6 @@ Update status spinner (for long-running operations)
 End testing current file
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$end_file()}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-ProgressMutationReporter-cr"></a>}}
-\if{latex}{\out{\hypertarget{method-ProgressMutationReporter-cr}{}}}
-\subsection{Method \code{cr()}}{
-Carriage return if dynamic, newline otherwise
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ProgressMutationReporter$cr()}\if{html}{\out{</div>}}
 }
 
 }

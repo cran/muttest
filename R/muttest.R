@@ -1,12 +1,12 @@
 #' Run a mutation test
 #'
-#' @param plan A mutation testing plan. See `muttest_plan()`.
+#' @param plan A mutation testing plan. See [muttest_plan()].
 #' @param path Path to the test directory.
-#' @param reporter Reporter to use for mutation testing results. See `?MutationReporter`.
-#' @param test_strategy Strategy for running tests. See `?TestStrategy`.
+#' @param reporter Reporter to use for mutation testing results. See [MutationReporter].
+#' @param test_strategy Strategy for running tests. See [TestStrategy].
 #'   The purpose of test strategy is to control how tests are executed.
 #'   We can run all tests for each mutant, or only tests that are relevant to the mutant.
-#' @param copy_strategy Strategy for copying the project. See `?CopyStrategy`.
+#' @param copy_strategy Strategy for copying the project. See [CopyStrategy].
 #'   This strategy controls which files are copied to the temporary directory, where the tests are run.
 #' @param workers Number of parallel workers. When greater than 1, mutants are tested
 #'   concurrently using `mirai` daemons. Defaults to 1 (sequential).
@@ -32,7 +32,7 @@ muttest <- function(
     checkmate::check_multi_class(plan, "muttest_plan"),
     checkmate::check_data_frame(plan),
     checkmate::check_set_equal(
-      c("filename", "original_code", "mutated_code", "mutator"),
+      c("filename", "original_code", "mutated_code", "mutator", "mutation"),
       names(plan)
     ),
     combine = "and"
@@ -142,28 +142,48 @@ print.muttest_result <- function(x, ...) {
   invisible(x)
 }
 
+#' Record a single mutant's outcome with the reporter
+#'
+#' Outcomes are mutually exclusive per mutant: `killed + survived + no_coverage
+#' + errors == 1`. A run-level crash or timeout is an error; an empty result
+#' means no test exercised the mutant (no coverage); a test failure means the
+#' mutation was detected (killed); a test error means the mutation broke the
+#' function itself and is recorded as an error (not a kill), unless a failure
+#' also occurred.
+#'
+#' @param reporter The mutation reporter to record the result with.
+#' @param row The plan row for the current mutant.
+#' @param test_results Test results, an error condition, or an empty result.
+#' @param mutated_code The mutated source lines.
+#' @noRd
 .record_result <- function(reporter, row, test_results, mutated_code) {
   if (inherits(test_results, "error")) {
-    reporter$add_result(
-      row,
-      killed = 0,
-      survived = 0,
-      errors = 1,
-      error = test_results,
-      original_code = row$original_code[[1]],
-      mutated_code = mutated_code
-    )
+    outcome <- list(killed = 0, survived = 0, no_coverage = 0, errors = 1)
+    error <- test_results
+  } else if (length(test_results) == 0) {
+    outcome <- list(killed = 0, survived = 0, no_coverage = 1, errors = 0)
+    error <- NULL
   } else {
     df <- as.data.frame(test_results)
-    reporter$add_result(
-      row,
-      killed = as.numeric(sum(df$failed) > 0),
-      survived = as.numeric(sum(df$failed) == 0),
-      errors = sum(df$error),
-      original_code = row$original_code[[1]],
-      mutated_code = mutated_code
-    )
+    if (sum(df$failed) > 0) {
+      outcome <- list(killed = 1, survived = 0, no_coverage = 0, errors = 0)
+    } else if (sum(df$error) > 0) {
+      outcome <- list(killed = 0, survived = 0, no_coverage = 0, errors = 1)
+    } else {
+      outcome <- list(killed = 0, survived = 1, no_coverage = 0, errors = 0)
+    }
+    error <- NULL
   }
+  reporter$add_result(
+    row,
+    killed = outcome$killed,
+    survived = outcome$survived,
+    no_coverage = outcome$no_coverage,
+    errors = outcome$errors,
+    error = error,
+    original_code = row$original_code[[1]],
+    mutated_code = mutated_code
+  )
   reporter$end_mutator()
   reporter$end_file()
 }
@@ -175,7 +195,7 @@ print.muttest_result <- function(x, ...) {
 #'
 #' The plan is in a data frame format, where each row represents a mutant.
 #'
-#' You can subset the plan before passing it to the `muttest()` function.
+#' You can subset the plan before passing it to the [muttest()] function.
 #'
 #' @param mutators A list of mutators to use. See [operator()].
 #' @param source_files A vector of file paths to the source files.
@@ -185,6 +205,8 @@ print.muttest_result <- function(x, ...) {
 #'   - `original_code`: The original code of the source file.
 #'   - `mutated_code`: The mutated code of the source file.
 #'   - `mutator`: The mutator that was applied.
+#'   - `mutation`: A list with the mutant's `location` (1-based `start`/`end`
+#'     line/column) and `replacement` text.
 #'
 #' @export
 #' @md
@@ -203,8 +225,9 @@ muttest_plan <- function(
         row <- data.frame(
           filename = filename,
           original_code = I(list(code_lines)),
-          mutated_code = I(list(mutation)),
+          mutated_code = I(list(mutation$code)),
           mutator = I(list(mutator)),
+          mutation = I(list(mutation[c("location", "replacement")])),
           stringsAsFactors = FALSE
         )
         rows <- c(rows, list(row))
@@ -217,6 +240,7 @@ muttest_plan <- function(
       original_code = I(list()),
       mutated_code = I(list()),
       mutator = I(list()),
+      mutation = I(list()),
       stringsAsFactors = FALSE
     )))
   }

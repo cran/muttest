@@ -48,9 +48,8 @@ overflow: visible;
 }
 </style>
 <style type="text/css" data-origin="pandoc">
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -434,12 +433,12 @@ target.</p>
 rather than its value.</p>
 <p><strong>Mutation testing output:</strong></p>
 <pre><code>ℹ Mutation Testing
-  |   K |   S |   E |   T |   % | Mutator  | File 
-x |   0 |   1 |   0 |   1 |   0 | - → +    | mad.R 
+  |   K |   S |   N |   E |   T |   % | Mutator  | File 
+x |   0 |   1 |   0 |   0 |   1 |   0 | - → +    | mad.R 
 
 
 ── Results ─────────────────────────────────────────────────────────────────────
-[ KILLED 0 | SURVIVED 1 | ERRORS 0 | TOTAL 1 | SCORE 0.0% ]
+[ KILLED 0 | SURVIVED 1 | NO COVERAGE 0 | ERRORS 0 | TOTAL 1 | SCORE 0.0% ]
 </code></pre>
 <p><code>- → +</code> survives. Changing <code>x - center</code> to
 <code>x + center</code> gives a different number, but
@@ -464,12 +463,12 @@ a value computed by hand. Now the mutant returns 6, which is not 4/3,
 and the test fails.</p>
 <p><strong>After the fix:</strong></p>
 <pre><code>ℹ Mutation Testing
-  |   K |   S |   E |   T |   % | Mutator  | File 
-✔ |   1 |   0 |   0 |   1 | 100 | - → +    | mad.R 
+  |   K |   S |   N |   E |   T |   % | Mutator  | File 
+✔ |   1 |   0 |   0 |   0 |   1 | 100 | - → +    | mad.R 
 
 
 ── Results ─────────────────────────────────────────────────────────────────────
-[ KILLED 1 | SURVIVED 0 | ERRORS 0 | TOTAL 1 | SCORE 100.0% ]
+[ KILLED 1 | SURVIVED 0 | NO COVERAGE 0 | ERRORS 0 | TOTAL 1 | SCORE 100.0% ]
 </code></pre>
 <blockquote>
 <p>When an arithmetic mutant survives, replace directional assertions
@@ -536,9 +535,12 @@ names the exact input your tests have never exercised. Adding a test at
 that precise boundary value kills it.</p>
 <div id="the-function-1" class="section level4">
 <h4>The function</h4>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>shipping_cost <span class="ot">&lt;-</span> <span class="cf">function</span>(weight_kg) {</span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="cf">if</span> (weight_kg <span class="sc">&gt;</span> <span class="dv">5</span>) <span class="fl">15.00</span> <span class="cf">else</span> <span class="fl">5.00</span></span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>apply_discount <span class="ot">&lt;-</span> <span class="cf">function</span>(price) {</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  price <span class="sc">-</span> <span class="dv">1</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>}</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>shipping_cost <span class="ot">&lt;-</span> <span class="cf">function</span>(weight_kg) {</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="cf">if</span> (weight_kg <span class="sc">&gt;</span> <span class="dv">5</span>) <span class="fl">15.00</span> <span class="cf">else</span> <span class="fl">5.00</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>}</span></code></pre></div>
 <p><code>shipping_cost</code> returns a flat rate based on whether the
 package is over or under 5 kg. The strict <code>&gt;</code> operator
 means a 5 kg package pays the lower rate; <code>&gt;=</code> would
@@ -554,13 +556,13 @@ It passes inputs of 10 and 2 kg — both clearly on opposite sides of the
 boundary — so it never exercises the value 5 itself.</p>
 <p><strong>Mutation testing output:</strong></p>
 <pre><code>ℹ Mutation Testing
-  |   K |   S |   E |   T |   % | Mutator  | File 
-✔ |   1 |   0 |   0 |   1 | 100 | &gt; → &lt;    | shipping.R 
-x |   1 |   1 |   0 |   2 |  50 | &gt; → &gt;=   | shipping.R 
+  |   K |   S |   N |   E |   T |   % | Mutator  | File 
+✔ |   1 |   0 |   0 |   0 |   1 | 100 | &gt; → &lt;    | shipping.R 
+x |   1 |   1 |   0 |   0 |   2 |  50 | &gt; → &gt;=   | shipping.R 
 
 
 ── Results ─────────────────────────────────────────────────────────────────────
-[ KILLED 1 | SURVIVED 1 | ERRORS 0 | TOTAL 2 | SCORE 50.0% ]
+[ KILLED 1 | SURVIVED 1 | NO COVERAGE 0 | ERRORS 0 | TOTAL 2 | SCORE 50.0% ]
 </code></pre>
 <p><code>&gt; → &gt;=</code> survives. Changing
 <code>weight_kg &gt; 5</code> to <code>weight_kg &gt;= 5</code> only
@@ -587,13 +589,13 @@ function returns <code>5.00</code>. With <code>&gt;= 5</code>, it is
 the mutant.</p>
 <p><strong>After the fix:</strong></p>
 <pre><code>ℹ Mutation Testing
-  |   K |   S |   E |   T |   % | Mutator  | File 
-✔ |   1 |   0 |   0 |   1 | 100 | &gt; → &lt;    | shipping.R 
-✔ |   2 |   0 |   0 |   2 | 100 | &gt; → &gt;=   | shipping.R 
+  |   K |   S |   N |   E |   T |   % | Mutator  | File 
+✔ |   1 |   0 |   0 |   0 |   1 | 100 | &gt; → &lt;    | shipping.R 
+✔ |   2 |   0 |   0 |   0 |   2 | 100 | &gt; → &gt;=   | shipping.R 
 
 
 ── Results ─────────────────────────────────────────────────────────────────────
-[ KILLED 2 | SURVIVED 0 | ERRORS 0 | TOTAL 2 | SCORE 100.0% ]
+[ KILLED 2 | SURVIVED 0 | NO COVERAGE 0 | ERRORS 0 | TOTAL 2 | SCORE 100.0% ]
 </code></pre>
 <blockquote>
 <p>When a comparison mutant survives, find the boundary value implied by
@@ -665,12 +667,12 @@ access) and both <code>FALSE</code> (should deny access). These are the
 simple scenarios without thinking about individual flag variation.</p>
 <p><strong>Mutation testing output:</strong></p>
 <pre><code>ℹ Mutation Testing
-  |   K |   S |   E |   T |   % | Mutator  | File 
-x |   0 |   1 |   0 |   1 |   0 | || → &amp;&amp;  | access.R 
+  |   K |   S |   N |   E |   T |   % | Mutator  | File 
+x |   0 |   1 |   0 |   0 |   1 |   0 | || → &amp;&amp;  | access.R 
 
 
 ── Results ─────────────────────────────────────────────────────────────────────
-[ KILLED 0 | SURVIVED 1 | ERRORS 0 | TOTAL 1 | SCORE 0.0% ]
+[ KILLED 0 | SURVIVED 1 | NO COVERAGE 0 | ERRORS 0 | TOTAL 1 | SCORE 0.0% ]
 </code></pre>
 <p><code>|| → &amp;&amp;</code> survives for both test cases:</p>
 <ul>
@@ -707,12 +709,12 @@ operators across the entire test suite.</p>
 This difference kills the mutant.</p>
 <p><strong>After the fix:</strong></p>
 <pre><code>ℹ Mutation Testing
-  |   K |   S |   E |   T |   % | Mutator  | File 
-✔ |   1 |   0 |   0 |   1 | 100 | || → &amp;&amp;  | access.R 
+  |   K |   S |   N |   E |   T |   % | Mutator  | File 
+✔ |   1 |   0 |   0 |   0 |   1 | 100 | || → &amp;&amp;  | access.R 
 
 
 ── Results ─────────────────────────────────────────────────────────────────────
-[ KILLED 1 | SURVIVED 0 | ERRORS 0 | TOTAL 1 | SCORE 100.0% ]
+[ KILLED 1 | SURVIVED 0 | NO COVERAGE 0 | ERRORS 0 | TOTAL 1 | SCORE 100.0% ]
 </code></pre>
 <blockquote>
 <p>When a logical operator mutant survives, add tests with asymmetric

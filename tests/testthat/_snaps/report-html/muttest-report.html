@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>muttest report</title>
+<link rel="stylesheet" href="../../../../inst/report/muttest.css">
+</head>
+<body data-f="survived">
+<div class="wrap">
+  <div class="mast">
+    <h1>muttest report</h1>
+    <div class="score band-mid">50%</div>
+  </div>
+  <div class="toolbar">
+    <button class="chip all" data-f="all" aria-pressed="false" data-tip="show every mutant">
+      All 
+      <b>2</b>
+    </button>
+    <button class="chip survived" data-f="survived" aria-pressed="false" data-tip="tests missed these: start here">
+      Survived 
+      <b>1</b>
+    </button>
+    <button class="chip killed" data-f="killed" aria-pressed="false" data-tip="tests caught these: no action needed">
+      Killed 
+      <b>1</b>
+    </button>
+    <button class="chip no_coverage" data-f="no_coverage" aria-pressed="false" data-tip="no test exercised this code" disabled>
+      No coverage 
+      <b>0</b>
+    </button>
+    <button class="chip error" data-f="error" aria-pressed="false" data-tip="mutant failed to run" disabled>
+      Errors 
+      <b>0</b>
+    </button>
+    <div class="tools">
+      <span class="hint">
+        <kbd>n</kbd>
+         / 
+        <kbd>p</kbd>
+         to jump between mutants
+      </span>
+      <select class="tbtn fjump" id="filejump" aria-label="Jump to file">
+        <option value="">Jump to file</option>
+      </select>
+      <button class="tbtn ibtn" data-open="1" data-tip="Expand all" aria-label="Expand all"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4-4 4 4"/><path d="M4 10l4 4 4-4"/></svg></button>
+      <button class="tbtn ibtn" data-open="0" data-tip="Collapse all" aria-label="Collapse all"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4 4-4"/><path d="M4 14l4-4 4 4"/></svg></button>
+      <button class="tbtn ibtn" id="theme" aria-label="Theme"></button>
+    </div>
+    <span class="fcount" id="fcount"></span>
+  </div>
+  <details class="file plan has-killed has-survived">
+    <summary>
+      <span class="fname">Mutation plan</span>
+      <span class="fmeta">
+        <span class="ct">
+          <b>2</b>
+           mutators
+        </span>
+      </span>
+    </summary>
+    <table class="plan-tbl">
+      <thead>
+        <tr>
+          <th>Mutator</th>
+          <th>Killed</th>
+          <th>Survived</th>
+          <th>No coverage</th>
+          <th>Errors</th>
+          <th>Total</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mname">&gt; → &gt;=</td>
+          <td class="z">0</td>
+          <td class="survived">1</td>
+          <td class="z">0</td>
+          <td class="z">0</td>
+          <td>1</td>
+          <td>0%</td>
+        </tr>
+        <tr>
+          <td class="mname">&gt; → &lt;</td>
+          <td class="killed">1</td>
+          <td class="z">0</td>
+          <td class="z">0</td>
+          <td class="z">0</td>
+          <td>1</td>
+          <td>100%</td>
+        </tr>
+      </tbody>
+    </table>
+  </details>
+  <details class="file has-killed has-survived">
+    <summary>
+      <span class="fname">R/shipping.R</span>
+      <span class="fmeta">
+        <span class="ct">
+          <b class="survived">1</b>
+           survived
+        </span>
+        <span class="ct">
+          <b class="killed">1</b>
+           killed
+        </span>
+        <span class="fscore">
+          score 
+          <b>50%</b>
+        </span>
+      </span>
+    </summary>
+    <div class="src">
+      <div class="ln">
+        <span class="no">1</span>
+        <span class="txt">shipping_cost &lt;- function(weight_kg) {</span>
+      </div>
+      <details class="ln hit b-survived has-killed has-survived">
+        <summary>
+          <span class="no">2</span>
+          <span class="txt">  if (weight_kg &gt; 5) 15.00 else 5.00</span>
+          <span class="badge">2 mutants</span>
+        </summary>
+        <div class="muts">
+          <div class="mut m-killed">
+            <div class="head">
+              <span class="st killed">killed</span>
+              <span class="rule">&gt; → &lt;</span>
+            </div>
+            <code>
+              <span class="del">-   if (weight_kg &gt; 5) 15.00 else 5.00</span>
+              <span class="add">+   if (weight_kg &lt; 5) 15.00 else 5.00</span>
+            </code>
+          </div>
+          <div class="mut m-survived">
+            <div class="head">
+              <span class="st survived">survived</span>
+              <span class="rule">&gt; → &gt;=</span>
+            </div>
+            <code>
+              <span class="del">-   if (weight_kg &gt; 5) 15.00 else 5.00</span>
+              <span class="add">+   if (weight_kg &gt;= 5) 15.00 else 5.00</span>
+            </code>
+          </div>
+        </div>
+      </details>
+      <div class="ln">
+        <span class="no">3</span>
+        <span class="txt">}</span>
+      </div>
+    </div>
+  </details>
+</div>
+<script src="../../../../inst/report/muttest.js"></script>
+<script type="module" src="../../../../inst/report/muttest-shiki.mjs"></script>
+</body>
+</html>
